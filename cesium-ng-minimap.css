@@ -1,0 +1,53 @@
+.cesium-minimap {
+  position: absolute;
+  bottom: 30px;
+  left: 10px;
+  width: 200px;
+  height: 200px;
+  background: #f8f8f9 none repeat scroll 0 0;
+  border: 4px solid rgba(255, 255, 255, 1);
+  border-radius: 8px;
+  box-shadow: 0 1px 7px #999;
+  transition: all 0.2s ease 0s;
+  -webkit-box-sizing: content-box !important;
+  -moz-box-sizing: content-box !important;
+  box-sizing: content-box !important;
+}
+
+.cesium-minimap .minimap-container {
+  height: 100%;
+  width: 100%;
+}
+
+.cesium-minimap .minimap-toggle-display {
+    transition: all 0.2s ease 0s;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 19px;
+    height: 19px;
+    background-color: #fff;
+    z-index: 1000;
+    text-align: center;
+
+}
+
+.cesium-minimap .minimap-toggle-display i {
+    transform: rotate(135deg);
+}
+
+.cesium-minimap .minimap-toggle-display.minimized i {
+    transform: rotate(-45deg);
+}
+
+.minimap-logging {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    width: 100%;
+    padding: 5px;
+    color: #FFF;
+    z-index: 1;
+    text-align: center;
+    background-color: dodgerblue;
+}

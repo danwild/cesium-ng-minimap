@@ -1,8 +1,8 @@
 {
-  "name": "cesium-minimap",
+  "name": "cesium-ng-minimap",
   "version": "0.0.2",
-  "description": "Minimap for Cesiumjs",
-  "main": "cesium-minimap.js",
+  "description": "Angular service wrapper for CesiumJS miniMap",
+  "main": "cesium-ng-minimap.js",
   "scripts": {
     "test": ""
   },
@@ -13,16 +13,17 @@
   "author": "",
   "license": "Apache 1.1",
   "devDependencies": {
-    "grunt": "^0.4.5",
-    "grunt-bump-build-git": "^1.1.1",
-    "grunt-contrib-uglify": "^0.9.1"
+    "express": "4.13.1",
+	"compression": "1.5.1",
+	"request": "2.58.0",
+	"yargs": "3.15.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/knreise/cesium-minimap.git"
+    "url": "https://github.com/danwild/cesium-ng-minimap.git"
   },
   "bugs": {
-    "url": "https://github.com/knreise/cesium-minimap/issues"
+    "url": "https://github.com/danwild/cesium-ng-minimap/issues"
   },
-  "homepage": "https://github.com/knreise/cesium-minimap"
+  "homepage": "https://github.com/danwild/cesium-ng-minimap"
 }
