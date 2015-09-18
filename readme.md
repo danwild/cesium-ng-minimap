@@ -13,4 +13,4 @@ Add the directive to your page somewhere:
 `<cesium-mini-map></cesium-mini-map>`
 
 
-The extent object is broadcast as an event: `extentOfInterestChanged`
+The extent object is broadcast as an event whenever the map stops moving: `extentOfInterestChanged`
