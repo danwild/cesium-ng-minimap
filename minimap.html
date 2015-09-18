@@ -1,0 +1,31 @@
+<div
+	class="cesium-minimap"
+	ng-show="miniMapState.init"
+	ng-class="{'minimap-expand': miniMapState.expanded, 'minimap-contract': !miniMapState.expanded}"
+	>
+
+	<div
+		class="minimap-container"
+		id="minimapContainer"
+		ng-mouseenter="miniMapService.setExtentVisible(true)"
+		ng-mouseleave="miniMapService.setExtentVisible(false)"
+		>
+
+		<div class="minimap-logging" ng-show="miniMapState.nationalScale">Using National Scale</div>
+		<div class="cesium-viewer">
+			<div class="cesium-viewer-cesiumWidgetContainer">
+				<div class="cesium-widget">
+					<canvas width="200" height="200"></canvas>
+				</div>
+			</div>
+			<div class="cesium-viewer-bottom" style="left: 0px; bottom: 0px;"></div>
+			<div class="cesium-viewer-toolbar"></div>
+		</div>
+
+	</div>
+
+	<a ng-click="miniMapService.toggle()" class="minimap-toggle-display" ng-class="{'minimized': !miniMapState.expanded}">
+		<i class="fa fa-arrow-right"></i>
+	</a>
+
+</div>

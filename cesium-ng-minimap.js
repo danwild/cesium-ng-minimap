@@ -6,26 +6,53 @@
 
 angular.module('cesium.minimap', [])
 
+.directive('cesiumMiniMap', [function() {
+
+	return {
+		templateUrl : 'components/minimap/minimap.html',
+		controller : 'miniMapController'
+	};
+}])
+
+.controller('miniMapController', ['$scope', 'miniMapService', 'miniMapState', function($scope, miniMapService, miniMapState) {
+
+		$scope.miniMapService = miniMapService;
+		$scope.miniMapState = miniMapState;
+}])
+
+.factory('miniMapState', [function() {
+
+		var state = {
+			init: false,
+			expanded: true,
+			focused: true,
+			nationalScale: true
+		}
+
+		return state;
+}])
+
 /**
  *
- * TODO: ng refactor
- *
- * An ng service wrapper to add 2d mini map to your cesium viewer
+ * Add 2d mini map to your cesium viewer
+ * fires an event 'extentOfInterestChanged' with a buffered map extent.
  *
  */
-.factory('miniMapService', [function() {
+.factory('miniMapService', ['$rootScope', 'miniMapState',
+		function($rootScope, miniMapState) {
 
 
 		var service = {};
 
 		service.parentViewer;
-		service.parentCamera;
-
-		service.expanded = true;
 		service.miniViewer;
+
+		service.parentCamera;
 		service.container;
-		service.toggleButton;
-		service.logging;
+		service.bounds;
+
+		var miniRectangleId = "miniRectangle";
+		var globeRectangleId = "globeRectangle";
 
 		service.options = {
 			animation: false,
@@ -55,43 +82,48 @@ angular.module('cesium.minimap', [])
 			service.parentViewer = parentViewer;
 			service.parentCamera = service.parentViewer.scene.camera;
 
-			// create container div -> directive...?
-			var div = document.createElement('div');
-			div.className = 'minimap-container';
-			service.logging = document.createElement('div');
-			service.logging.innerHTML = "Using National Scale"
-			service.logging.className = 'minimap-logging';
-			div.appendChild(service.logging);
-
-			service.container = getContainer();
-			service.container.appendChild(div);
-			service.toggleButton = createToggleButton();
-			service.container.appendChild(service.toggleButton);
-			setupMap(div);
+			setupMap();
 			setupListeners();
 
 			service.miniViewer.scene.imageryLayers.addImageryProvider(imageryProvider);
 			service.miniViewer.camera.viewRectangle(ausExtent);
+
+			miniMapState.init = true;
 		};
 
+		/**
+		 *
+		 * Expand/contract the minimap
+		 *
+		 */
+		service.toggle = function() {
+			miniMapState.expanded = !miniMapState.expanded;
+		};
 
-		// gets the miniMap container div
-		function getContainer() {
-			var parentDiv = document.createElement('div');
-			parentDiv.className = 'cesium-minimap';
-			service.parentViewer.bottomContainer.appendChild(parentDiv);
-			return parentDiv;
-		}
+		/**
+		 *
+		 * Show/hide the extent/rectangle entity on the parent globe
+		 *
+         */
+		service.setExtentVisible = function(visible){
 
-		function addLayer(layer) {
-			service.miniViewer.imageryLayers.addImageryProvider(layer.imageryProvider);
-		}
+			if(visible && !miniMapState.nationalScale && service.bounds.hasOwnProperty("rectangle")){
 
-		function setupMap(div) {
+				updateOrAddRectangleEntity(service.parentViewer, service.bounds.rectangle, globeRectangleId);
+			}
+			else {
+				service.parentViewer.entities.removeById(globeRectangleId);
+			}
 
-			service.options.creditContainer = document.createElement('div');
+		};
 
-			var viewer = new Cesium.Viewer(div, service.options);
+		/**
+		 * Setup the minimap, add any special scene config here
+		 *
+		 */
+		function setupMap() {
+
+			var viewer = new Cesium.Viewer(document.getElementById("minimapContainer"), service.options);
 			viewer.scene.imageryLayers.removeAll();
 
 			var scene = viewer.scene;
@@ -100,37 +132,246 @@ angular.module('cesium.minimap', [])
 			scene.screenSpaceCameraController.enableZoom = false;
 			scene.screenSpaceCameraController.enableTilt = false;
 			scene.screenSpaceCameraController.enableLook = false;
-
-			// inherit parent map..? nah
-			//service.parentViewer.scene.imageryLayers.layerAdded.addEventListener(addLayer);
-
 			service.miniViewer = viewer;
 		}
 
-		// use move start/stop so we're only looping when it matters
+		/**
+		 *
+		 * Use move start/stop so we're only looping when it matters
+		 *
+		 */
 		function mapMoving(){
 
 			service.intervalHandle = setInterval(function() {
-				getExtentView();
-			}, 10);
 
+				// get buffered rectangle for extent
+				service.bounds = getExtentBounds(-150);
+
+				if(service.bounds){
+
+					// get miniMap rectangle for display bounds
+					var miniMapRectangle = getViewRectangle(100);
+
+					if(cesiumUtil.isValidRectangle(miniMapRectangle)){
+
+						updateOrAddRectangleEntity(service.miniViewer, service.bounds.rectangle, miniRectangleId);
+
+						service.miniViewer.scene.camera.viewRectangle(miniMapRectangle);
+						miniMapState.nationalScale = false;
+
+						// safe apply
+						if(!$rootScope.$$phase) {
+							$rootScope.$apply();
+						}
+					}
+					else {
+						fallbackView();
+					}
+				}
+				else {
+					fallbackView();
+				}
+
+			}, 10);
 		};
 
-		// clear interval when map inactive
+		/**
+		 * quit interval when map inactive
+		 */
 		function mapStopped(){
 			clearInterval(service.intervalHandle);
+
+			// TODO fire off our event?
+			$rootScope.$broadcast('', service.bounds.extent);
+
 			console.log("stopped");
+			if(miniMapState.nationalScale){
+				service.miniViewer.entities.removeById(miniRectangleId)
+			};
 		};
 
-		// get 2d rectangle from current view
-		function getExtentView(){
+		function updateOrAddRectangleEntity(viewer, rectangle, id) {
+
+			var rectangleEntity = viewer.entities.getById(id);
+
+			if(rectangleEntity){
+				rectangleEntity.rectangle.coordinates = rectangle;
+			}
+			else {
+				viewer.entities.add({
+					id: id,
+					rectangle : {
+						coordinates : rectangle,
+						outline : true,
+						outlineColor : Cesium.Color.RED,
+						outlineWidth : 3,
+						material : Cesium.Color.RED.withAlpha(0.0)
+					}
+				});
+			}
+		};
+
+
+		/**
+		 * Get a position for each four corners of the canvas
+		 *
+         * @param offset
+		 * @returns {Array}
+		 */
+		function getCanvasCorners(offset){
+
+			// retina displays are the future, man
+			var pixelRatio = window.devicePixelRatio || 1;
+			var ellipsoid = Cesium.Ellipsoid.WGS84;
+
+			var corners = [];
+
+			// topLeft
+			var c2Pos = new Cesium.Cartesian2(-offset, -offset);
+			corners.push(service.parentViewer.scene.camera.pickEllipsoid(c2Pos, ellipsoid));
+
+			// bottomLeft
+			c2Pos = new Cesium.Cartesian2(
+				-offset,
+				(service.parentViewer.scene.canvas.height / pixelRatio) + offset
+			);
+			corners.push(service.parentViewer.scene.camera.pickEllipsoid(c2Pos, ellipsoid));
+
+			// bottomRight
+			c2Pos = new Cesium.Cartesian2(
+				(service.parentViewer.scene.canvas.width / pixelRatio) + offset,
+				(service.parentViewer.scene.canvas.height / pixelRatio) + offset
+			);
+			corners.push(service.parentViewer.scene.camera.pickEllipsoid(c2Pos, ellipsoid));
+
+			// topRight
+			var c2Pos = new Cesium.Cartesian2(
+				(service.parentViewer.scene.canvas.width / pixelRatio) + offset,
+				-offset
+			);
+			corners.push(service.parentViewer.scene.camera.pickEllipsoid(c2Pos, ellipsoid));
+
+
+			// make sure we've got valid positions for each of the canvas corners
+			// (invalid if we've got sky)
+			for(var i = 0; i < corners.length; i++){
+
+				if(corners[i]){
+					corners[i] = ellipsoid.cartesianToCartographic(corners[i]);
+				}
+
+				else {
+					fallbackView();
+					return;
+				}
+			}
+
+			return corners;
+		};
+
+		/**
+		 *
+		 * Shuffles the canvas corner orientations to
+		 * eliminate rectangle skew caused by offset globe headings
+		 * i.e. if globe is at 20 degrees topRight becomes the highest latitude for our 2d bounds
+		 *
+		 * @param degrees
+		 * @param corners
+		 * @returns {{rectangle: (Cesium.Rectangle.fromDegrees|*), extent: {xmin: *, ymin: *, xmax: *, ymax: *}}}
+		 */
+		function getOrientedBounds(degrees, corners){
+
+			var rectangle;
+
+			/*
+				 <degrees> -> <north corner>
+
+				 0-90 -> topRight
+				 90-180 -> bottomRight
+				 180-270 -> bottomLeft
+				 270-360 -> topRight
+
+				 <northIndex> -> [cornerIndexes]
+
+				 0 = [0,1,2,3]
+				 1 = [3,0,1,2]
+				 2 = [2,3,0,1]
+				 3 = [1,2,3,0]
+			 */
+
+			var northCornerIndex = Math.abs(parseInt(degrees / 90));
+			var cornerPositions = [
+				[0,1,2,3],
+				[3,0,1,2],
+				[2,3,0,1],
+				[1,2,3,0]
+			];
+
+			// west, south, east, north
+			rectangle = new Cesium.Rectangle.fromDegrees(
+				Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][0] ].longitude),
+				Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][1] ].latitude),
+				Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][2] ].longitude),
+				Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][3] ].latitude)
+			);
+
+			//xmin, ymin, xmax, ymax
+			var extent = {
+				'xmin': Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][0] ].longitude),
+				'ymin': Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][1] ].latitude),
+				'xmax': Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][2] ].longitude),
+				'ymax': Cesium.Math.toDegrees(corners[ cornerPositions[northCornerIndex][3] ].latitude)
+			};
+
+			return {
+				rectangle: rectangle,
+				extent: extent
+			};
+		};
+
+		/**
+		 * Gets the extent of bounds + offset
+		 *
+		 * @param offset
+		 * @returns {{rectangle, extent}|{rectangle: (Cesium.Rectangle.fromDegrees|*), extent: {xmin: *, ymin: *, xmax: *, ymax: *}}}
+		 */
+		function getExtentBounds(offset) {
+
+			var corners = getCanvasCorners(offset);
+
+			if(!corners){
+				return;
+			}
+
+			var heading = parseFloat(Cesium.Math.toDegrees(service.parentCamera.heading));
+			var degrees = 360 - heading;
+
+			return getOrientedBounds(degrees, corners);
+		};
+
+		/**
+		 *
+		 * Get rectangle of current view + offset
+		 * don't bother adjusting orientation as Cesiums viewRectangle() seems to work ok regardless
+		 *
+		 * @param offset
+		 * @returns rectangle or null
+		 */
+		function getViewRectangle(offset){
 
 			var ellipsoid = Cesium.Ellipsoid.WGS84;
 
-			var c2 = new Cesium.Cartesian2(0,0);
+			// retina displays are the future, man
+			var pixelRatio = window.devicePixelRatio || 1;
+
+			var c2 = new Cesium.Cartesian2(-offset, -offset);
 			var leftTop = service.parentViewer.scene.camera.pickEllipsoid(c2, ellipsoid);
 
-			c2 = new Cesium.Cartesian2(service.parentViewer.scene.canvas.width, service.parentViewer.scene.canvas.height);
+			c2 = new Cesium.Cartesian2(
+				(service.parentViewer.scene.canvas.width / pixelRatio) + offset,
+				(service.parentViewer.scene.canvas.height / pixelRatio) + offset
+			);
+
 			var rightDown = service.parentViewer.scene.camera.pickEllipsoid(c2, ellipsoid);
 
 			if(leftTop != null && rightDown != null){
@@ -139,74 +380,107 @@ angular.module('cesium.minimap', [])
 				rightDown = ellipsoid.cartesianToCartographic(rightDown);
 
 				// west, south, east, north
-				var extent = new Cesium.Rectangle.fromDegrees(
+				var rectangle = new Cesium.Rectangle.fromDegrees(
 					Cesium.Math.toDegrees(leftTop.longitude),
 					Cesium.Math.toDegrees(rightDown.latitude),
 					Cesium.Math.toDegrees(rightDown.longitude),
 					Cesium.Math.toDegrees(leftTop.latitude)
 				);
 
-				service.miniViewer.scene.camera.viewRectangle(extent);
-				console.log(extent);
-
-				service.logging.style.display = "none";
-
-				return extent;
+				return rectangle;
 			}
 
 			// The sky is visible in 3D, fallback to ausExtent national map
 			else {
 
-				console.log("the sky is falling :`(");
-
-				service.miniViewer.camera.viewRectangle(ausExtent);
-				service.logging.style.display = "block";
-
+				fallbackView();
 				return null;
 			}
 		}
 
+		function fallbackView(){
+
+			console.log("falling back to national scale");
+
+			service.miniViewer.camera.viewRectangle(ausExtent);
+			miniMapState.nationalScale = true;
+
+			clearInterval(service.intervalHandle);
+
+			// safe apply
+			if(!$rootScope.$$phase) {
+				$rootScope.$apply();
+			};
+
+			return;
+		};
 
 		function setupListeners() {
 			service.parentViewer.scene.camera.moveStart.addEventListener(mapMoving);
 			service.parentViewer.scene.camera.moveEnd.addEventListener(mapStopped);
 		}
 
-		function toggle() {
-			service.expanded = !service.expanded;
+		/**
+		 *
+		 * Pinched from Cesium Rectangle.js, but return a boolean instead of throwing dev errors
+		 *
+		 * @param rectangle
+		 */
+		service.isValidRectangle = function(rectangle) {
 
-			if (service.expanded) {
-				service.container.style.width = '200px';
-				service.container.style.height = '200px';
-				service.toggleButton.className = service.toggleButton.className.replace(
-					' minimized',
-					''
-				);
-			} else {
-				//close
-				service.container.style.width = '19px';
-				service.container.style.height = '19px';
-				service.toggleButton.className += ' minimized';
+			var isValid =  true;
+
+			if (!rectangle) {
+				isValid = false;
+				console.log('rectangle is required');
 			}
-		}
 
-		function createToggleButton() {
+			var north = rectangle.north;
+			if (typeof north !== 'number') {
+				isValid = false;
+				console.log('north is required to be a number.');
+			}
 
-			var btn = document.createElement('a');
-			btn.className = 'minimap-toggle-display';
+			if (north < -Cesium.Math.PI_OVER_TWO || north > Cesium.Math.PI_OVER_TWO) {
+				isValid = false;
+				console.log('north must be in the interval [-Pi/2, Pi/2].');
+			}
 
-			var icon = document.createElement('i');
-			icon.className = 'fa fa-arrow-right';
+			var south = rectangle.south;
+			if (typeof south !== 'number') {
+				isValid = false;
+				console.log('south is required to be a number.');
+			}
 
-			btn.appendChild(icon);
+			if (south < -Cesium.Math.PI_OVER_TWO || south > Cesium.Math.PI_OVER_TWO) {
+				isValid = false;
+				console.log('south must be in the interval [-Pi/2, Pi/2].');
+			}
 
-			btn.onclick = function (e) {
-				e.preventDefault();
-				toggle();
-				return false;
-			};
-			return btn;
-		}
+			var west = rectangle.west;
+			if (typeof west !== 'number') {
+				isValid = false;
+				console.log('west is required to be a number.');
+			}
+
+			if (west < -Math.PI || west > Math.PI) {
+				isValid = false;
+				console.log('west must be in the interval [-Pi, Pi].');
+			}
+
+			var east = rectangle.east;
+			if (typeof east !== 'number') {
+				isValid = false;
+				console.log('east is required to be a number.');
+			}
+
+			if (east < -Math.PI || east > Math.PI) {
+				isValid = false;
+				console.log('east must be in the interval [-Pi, Pi].');
+			}
+
+			return isValid;
+		};
 
 		return service;
 }]);
