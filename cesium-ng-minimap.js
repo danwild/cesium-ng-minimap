@@ -181,8 +181,7 @@ angular.module('cesium.minimap', [])
 		function mapStopped(){
 			clearInterval(service.intervalHandle);
 
-			// TODO fire off our event?
-			$rootScope.$broadcast('', service.bounds.extent);
+			$rootScope.$broadcast('extentOfInterestChanged', service.bounds.extent);
 
 			console.log("stopped");
 			if(miniMapState.nationalScale){

@@ -2,8 +2,16 @@
 
 A simple AngularJS service to add minimap for Cesium.js.
 
-It adds a 2d map and also provides bounding box extent based on Cesiums Camera position which may be used in web service queries.
+It adds a 2d map and also provides an <strong>approximate</strong> extent based on Cesiums Camera position (plus optional buffer).
 
-<strong>Note:</strong> further work to be done on accuracy of derived bounding box/extent.
+<h2>Usage:</h2>
 
+Add <code>'cesium.minimap'</code> module to your Angular app.
 
+Add the directive to your page somewhere:
+
+<code>
+	<cesium-mini-map></cesium-mini-map>
+</code>
+
+The extent object is broadcast as an event: 'extentOfInterestChanged'
