@@ -10,8 +10,7 @@ Add <code>'cesium.minimap'</code> module to your Angular app.
 
 Add the directive to your page somewhere:
 
-<code>
-	<cesium-mini-map></cesium-mini-map>
-</code>
+`<cesium-mini-map></cesium-mini-map>`
 
-The extent object is broadcast as an event: 'extentOfInterestChanged'
+
+The extent object is broadcast as an event: `extentOfInterestChanged`
