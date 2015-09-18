@@ -427,58 +427,56 @@ angular.module('cesium.minimap', [])
 		 */
 		service.isValidRectangle = function(rectangle) {
 
-			var isValid =  true;
-
-			if (!rectangle) {
-				isValid = false;
+			if (rectangle == null || !rectangle.hasOwnProperty('north')) {
 				console.log('rectangle is required');
+				return false;
 			}
 
 			var north = rectangle.north;
 			if (typeof north !== 'number') {
-				isValid = false;
 				console.log('north is required to be a number.');
+				return false;
 			}
 
 			if (north < -Cesium.Math.PI_OVER_TWO || north > Cesium.Math.PI_OVER_TWO) {
-				isValid = false;
 				console.log('north must be in the interval [-Pi/2, Pi/2].');
+				return false;
 			}
 
 			var south = rectangle.south;
 			if (typeof south !== 'number') {
-				isValid = false;
 				console.log('south is required to be a number.');
+				return false;
 			}
 
 			if (south < -Cesium.Math.PI_OVER_TWO || south > Cesium.Math.PI_OVER_TWO) {
-				isValid = false;
 				console.log('south must be in the interval [-Pi/2, Pi/2].');
+				return false;
 			}
 
 			var west = rectangle.west;
 			if (typeof west !== 'number') {
-				isValid = false;
 				console.log('west is required to be a number.');
+				return false;
 			}
 
 			if (west < -Math.PI || west > Math.PI) {
-				isValid = false;
 				console.log('west must be in the interval [-Pi, Pi].');
+				return false;
 			}
 
 			var east = rectangle.east;
 			if (typeof east !== 'number') {
-				isValid = false;
 				console.log('east is required to be a number.');
+				return false;
 			}
 
 			if (east < -Math.PI || east > Math.PI) {
-				isValid = false;
 				console.log('east must be in the interval [-Pi, Pi].');
+				return false;
 			}
 
-			return isValid;
+			return true;
 		};
 
 		return service;
